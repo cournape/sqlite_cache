@@ -6,7 +6,11 @@ python:
    - 3.2
 
 install:
-   - pip install -r dev_requirements.txt;
+   - if [ "${TRAVIS_PYTHON_VERSION}" == "2.6" ]; then
+       pip install -r dev_requirements26.txt;
+       else
+       pip install -r dev_requirements.txt;
+       fi
    - pip install coveralls
 
 script:
