@@ -9,3 +9,5 @@ Example of usage::
     cache.set("key", "value")
 
     print "value for {0!r} is {0!r}".format("key", cache.get("key"))
+
+Python >= 2.6 and >= 3.2 are supported.
