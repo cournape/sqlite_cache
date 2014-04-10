@@ -1,1 +1,3 @@
-from sqlite_cache.core import SQLiteCache  # pragma: no cover
+from __future__ import absolute_import
+
+from .core import SQLiteCache  # pragma: no cover
