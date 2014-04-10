@@ -27,9 +27,9 @@ DELETE
 _DELETE_KEY = "DELETE FROM queue WHERE key = ?;"
 
 _WRITE = """
-INSERT
+INSERT OR REPLACE
     INTO queue (key, value, modified_at)
-    VALUES (?, ?, time('now'));
+    VALUES( ?, ?, time('now'));
 """
 
 
