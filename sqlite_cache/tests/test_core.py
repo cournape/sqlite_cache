@@ -90,3 +90,19 @@ class TestCore(unittest.TestCase):
         with SQLiteCache(":memory:") as cache:
             self.assertFalse(cache.closed)
         self.assertTrue(cache.closed)
+
+    def test_overwrite(self):
+        # Given
+        cache = SQLiteCache(":memory:")
+        key = "nono"
+        value = "le petit robot"
+
+        # When/Then
+        cache.set(key, "themis")
+        self.assertEqual(cache.get(key), "themis")
+
+        # When/Then
+        cache.set(key, value)
+        self.assertEqual(cache.get(key), value)
+
+        cache.close()
