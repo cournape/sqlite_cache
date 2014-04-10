@@ -1,3 +1,9 @@
+.. image:: https://travis-ci.org/cournape/sqlite_cache.png
+   :target: https://travis-ci.org/cournape/sqlite_cache
+
+.. image:: https://coveralls.io/repos/cournape/sqlite_cache/badge.png?branch=master
+   :target: https://coveralls.io/r/cournape/sqlite_cache?branch=master
+
 A dumb cache backed by sqlite. The cache has a max capacity and will delete
 older entries to make space for new entries.
 
