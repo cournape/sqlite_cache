@@ -57,6 +57,11 @@ class SQLiteCache(object):
         self._closed = False
 
     def close(self):
+        """
+        Close the cache.
+
+        SQLite connection is closed, you cannot use any get/set/delete anymore.
+        """
         self._closed = True
         self._cx.close()
 
