@@ -1,3 +1,4 @@
+import os
 import sqlite3
 
 MAX_KEY_SIZE = 256
@@ -49,12 +50,23 @@ class SQLiteCache(object):
     def __init__(self, uri, capacity=10):
         self._uri = uri
         self._capacity = capacity
-        self._cx = sqlite3.Connection(self._uri)
+        self._cx = None
 
+        self._init()
+        self._closed = False
+
+    def _init(self):
+        self._cx = sqlite3.Connection(self._uri)
         self._cx.execute("pragma synchronous = off;")
         self._cx.execute(_CREATE_TABLES)
 
-        self._closed = False
+    def reset(self):
+        if self._uri == ":memory:":
+            self.close()
+        else:
+            self.close()
+            os.unlink(self._uri)
+        self._init()
 
     def close(self):
         """

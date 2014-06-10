@@ -1,6 +1,10 @@
 from __future__ import absolute_import
 
+import os.path
+import shutil
+import sqlite3
 import sys
+import tempfile
 import time
 
 if sys.version_info < (2, 7):
@@ -106,3 +110,58 @@ class TestCore(unittest.TestCase):
         self.assertEqual(cache.get(key), value)
 
         cache.close()
+
+class TestFailureMode(unittest.TestCase):
+    def setUp(self):
+        self.prefix = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.prefix)
+
+    def _create_invalid_table(self, uri):
+        cx = sqlite3.Connection(uri)
+        cx.execute("""\
+CREATE TABLE queue
+(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key STRING(10) UNIQUE,
+    modified_at INT NOT NULL
+);""")
+
+    def test_reset_file(self):
+        # Given
+        uri = os.path.join(self.prefix, "foo.db")
+        self._create_invalid_table(uri)
+
+        # When/Then
+        with self.assertRaises(sqlite3.OperationalError):
+            with SQLiteCache(uri) as cache:
+                cache.set("foo", "bar")
+
+        # When
+        cache = SQLiteCache(uri)
+        try:
+            with self.assertRaises(sqlite3.OperationalError):
+                cache.set("foo", "bar")
+            cache.reset()
+            cache.set("foo", "bar")
+            value = cache.get("foo")
+        finally:
+            cache.close()
+
+        # Then
+        self.assertEqual(value, "bar")
+
+    def test_reset_memory(self):
+        # Given
+        uri = ":memory:"
+        self._create_invalid_table(uri)
+
+        # When
+        with SQLiteCache(uri) as cache:
+            cache.reset()
+            cache.set("foo", "bar")
+            value = cache.get("foo")
+
+        # Then
+        self.assertEqual(value, "bar")
