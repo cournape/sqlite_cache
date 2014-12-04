@@ -71,7 +71,7 @@ class SQLiteCache(object):
         SQLite connection is closed, you cannot use any get/set/delete anymore.
         """
         self._closed = True
-        if self._use_separate_connection:
+        if not self._use_separate_connection:
             self._cx.close()
 
     @contextlib.contextmanager

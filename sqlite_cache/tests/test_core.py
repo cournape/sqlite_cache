@@ -119,20 +119,21 @@ class TestCore(unittest.TestCase):
         try:
             # Given
             uri = os.path.join(tempdir, "foo.db")
-            cache = SQLiteCache(uri, use_separate_connection=False)
             value = "a" * 10
 
             def worker(cache, index):
                 key = "key{0}".format(index)
                 cache.set(key, value)
 
-            # When/Then
-            with ThreadPoolExecutor(max_workers=5) as executor:
-                tasks = []
-                for i in range(20):
-                    tasks.append(executor.submit(worker, cache, i))
+            with SQLiteCache(uri, use_separate_connection=True) as cache:
+                # When/Then
+                # Ensure we don't raise any threading-related error
+                with ThreadPoolExecutor(max_workers=5) as executor:
+                    tasks = []
+                    for i in range(20):
+                        tasks.append(executor.submit(worker, cache, i))
 
-                for task in as_completed(tasks):
-                    task.result()
+                    for task in as_completed(tasks):
+                        task.result()
         finally:
             shutil.rmtree(tempdir)
