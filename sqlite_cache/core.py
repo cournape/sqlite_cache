@@ -1,3 +1,4 @@
+import contextlib
 import sqlite3
 
 MAX_KEY_SIZE = 256
@@ -46,13 +47,20 @@ class SQLiteCache(object):
     capacity: int
         Maximum number of entries.
     """
-    def __init__(self, uri, capacity=10):
+    def __init__(self, uri, capacity=10, use_separate_connection=False):
         self._uri = uri
         self._capacity = capacity
-        self._cx = sqlite3.Connection(self._uri)
 
-        self._cx.execute("pragma synchronous = off;")
-        self._cx.execute(_CREATE_TABLES)
+        if use_separate_connection:
+            self._cx = None
+        else:
+            self._cx = sqlite3.Connection(self._uri)
+
+        self._use_separate_connection = use_separate_connection
+
+        with self._connection_context() as cx:
+            cx.execute("pragma synchronous = off;")
+            cx.execute(_CREATE_TABLES)
 
         self._closed = False
 
@@ -63,7 +71,20 @@ class SQLiteCache(object):
         SQLite connection is closed, you cannot use any get/set/delete anymore.
         """
         self._closed = True
-        self._cx.close()
+        if not self._use_separate_connection:
+            self._cx.close()
+
+    @contextlib.contextmanager
+    def _connection_context(self):
+        if self._use_separate_connection:
+            cx = sqlite3.Connection(self._uri)
+        else:
+            cx = self._cx
+        try:
+            yield cx
+        finally:
+            if self._use_separate_connection:
+                cx.close()
 
     def __enter__(self):
         return self
@@ -80,42 +101,45 @@ class SQLiteCache(object):
         return self._closed
 
     def size(self):
-        c = self._cx.cursor()
-        try:
-            res = c.execute(_TABLE_SIZE)
-            return res.fetchone()[0]
-        finally:
-            c.close()
+        with self._connection_context() as cx:
+            c = cx.cursor()
+            try:
+                res = c.execute(_TABLE_SIZE)
+                return res.fetchone()[0]
+            finally:
+                c.close()
 
     def get(self, key):
         """
         Retrieve the entry for the given key
         """
-        c = self._cx.cursor()
-        try:
-            res = c.execute("SELECT value FROM queue WHERE key = ?;", (key,))
-            row = res.fetchone()
-            if row:
-                return row[0]
-            else:
-                return None
-        finally:
-            c.close()
+        with self._connection_context() as cx:
+            c = cx.cursor()
+            try:
+                res = c.execute("SELECT value FROM queue WHERE key = ?;", (key,))
+                row = res.fetchone()
+                if row:
+                    return row[0]
+                else:
+                    return None
+            finally:
+                c.close()
 
     def set(self, key, value):
         """
         Write the given value for the given key
         """
-        c = self._cx.cursor()
-        try:
-            res = c.execute(_TABLE_SIZE)
-            size = res.fetchone()[0]
-            if size >= self.capacity:
-                c.execute(_DELETE_OLDEST)
-            c.execute(_WRITE, (key, value))
-            self._cx.commit()
-        finally:
-            c.close()
+        with self._connection_context() as cx:
+            c = cx.cursor()
+            try:
+                res = c.execute(_TABLE_SIZE)
+                size = res.fetchone()[0]
+                if size >= self.capacity:
+                    c.execute(_DELETE_OLDEST)
+                c.execute(_WRITE, (key, value))
+                cx.commit()
+            finally:
+                c.close()
 
     def delete(self, key):
         """
@@ -123,12 +147,13 @@ class SQLiteCache(object):
 
         Does not raise an exception if the key does not exist.
         """
-        c = self._cx.cursor()
-        try:
-            res = c.execute("SELECT value FROM queue WHERE key = ?;", (key,))
-            row = res.fetchone()
-            if row:
-                c.execute(_DELETE_KEY, (key,))
-            self._cx.commit()
-        finally:
-            c.close()
+        with self._connection_context() as cx:
+            c = cx.cursor()
+            try:
+                res = c.execute("SELECT value FROM queue WHERE key = ?;", (key,))
+                row = res.fetchone()
+                if row:
+                    c.execute(_DELETE_KEY, (key,))
+                cx.commit()
+            finally:
+                c.close()
