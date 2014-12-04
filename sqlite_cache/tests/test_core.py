@@ -1,12 +1,18 @@
 from __future__ import absolute_import
 
+import os.path
+import shutil
 import sys
+import tempfile
 import time
 
 if sys.version_info < (2, 7):
     import unittest2 as unittest
 else:
     import unittest
+
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 
 from ..core import SQLiteCache
 
@@ -106,3 +112,27 @@ class TestCore(unittest.TestCase):
         self.assertEqual(cache.get(key), value)
 
         cache.close()
+
+    def test_multi_thread(self):
+        tempdir = tempfile.mkdtemp()
+
+        try:
+            # Given
+            uri = os.path.join(tempdir, "foo.db")
+            cache = SQLiteCache(uri, use_separate_connection=False)
+            value = "a" * 10
+
+            def worker(cache, index):
+                key = "key{0}".format(index)
+                cache.set(key, value)
+
+            # When/Then
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                tasks = []
+                for i in range(20):
+                    tasks.append(executor.submit(worker, cache, i))
+
+                for task in as_completed(tasks):
+                    task.result()
+        finally:
+            shutil.rmtree(tempdir)
